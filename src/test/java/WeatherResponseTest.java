@@ -1,3 +1,9 @@
+import io.restassured.builder.RequestSpecBuilder;
+import io.restassured.builder.ResponseSpecBuilder;
+import io.restassured.http.ContentType;
+import io.restassured.specification.RequestSpecification;
+import io.restassured.specification.ResponseSpecification;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -5,6 +11,9 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.is;
 
 public class WeatherResponseTest {
+  private static ResponseSpecification responseSpec;
+  private static RequestSpecification requestSpec;
+
   @DataProvider(name="validParams")
   public Object[][] testValidData() {
     return new Object[][]{
@@ -24,20 +33,41 @@ public class WeatherResponseTest {
               {"94040,us","400","94040,us is not a city ID"}
       };
   }
+
+  @BeforeMethod
+  public static void createSpecification(){
+    responseSpec = new ResponseSpecBuilder().
+      expectStatusCode(200).
+      expectContentType(ContentType.JSON).
+      build();
+    requestSpec = new RequestSpecBuilder().
+      setBaseUri(OpenWeatherApiConfig.OPENWEATHER_URL).
+      build();
+  }
+
   @Test(dataProvider = "validParams")
   public void validParametersTest(String paramName, String paramValue, String expectedCountry){
     given().
+            spec(requestSpec).
+            queryParam(paramName,paramValue).
+            queryParam("APPID", OpenWeatherApiConfig.APPID).
+            log().all().
             when().
-            get(OpenWeatherApiConfig.getEndPointWithParameter(paramName,paramValue)).
+            get().
             then().
-            assertThat().statusCode(200).
-            assertThat().body("sys.country",is(expectedCountry));
+            spec(responseSpec).
+            and().assertThat().body("sys.country",is(expectedCountry));
   }
+
   @Test(dataProvider = "invalidParams")
   public void invalidIdsTest(String id,String code, String message){
     given().
+            spec(requestSpec).
+            queryParam("id",id).
+            queryParam("APPID", OpenWeatherApiConfig.APPID).
+            log().all().
             when().
-            get(OpenWeatherApiConfig.getEndPointWithParameter("id",id)).
+            get().
             then().
             assertThat().body("cod",is(code)).
             assertThat().body("message",is(message));
